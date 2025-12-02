@@ -15,7 +15,6 @@
 // Diese Variable MUSS in einer anderen .c-Datei (z.B. main.c oder level.c) als:
 // const u16 map_collision_data[MAP_WIDTH_TILES * MAP_HEIGHT_TILES] = { ... };
 // definiert werden. Die Werte 0 bedeuten leer (keine Kollision), > 0 bedeuten solide.
-extern const u16 map_collision_data[MAP_WIDTH_TILES * MAP_HEIGHT_TILES];
 
 // Gibt den Kachel-Index an der gegebenen Weltposition (Pixel) auf Plane A zurück.
 // Kacheln mit Index 1 (oder höher) werden als solide angenommen.

@@ -1,4 +1,4 @@
-out/src/entity.o: src/entity.c src/entity.h \
+out/src/physics.o: src/physics.c src/physics.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/genesis.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/types.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/config.h \
@@ -51,4 +51,4 @@ out/src/entity.o: src/entity.c src/entity.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/config.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/string.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/maths.h \
- C:/Users/peter/Documents/_Genesis/sgdk211/inc/dma.h res/title.h
+ C:/Users/peter/Documents/_Genesis/sgdk211/inc/dma.h src/entity.h

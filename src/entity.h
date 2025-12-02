@@ -4,10 +4,10 @@
 #include <genesis.h>
 #define MAX_ENTITIES 20
 
-extern s8 entities_count;
+extern u8 entities_count;
 
 enum ENTITY_TYPE{
-    ENTITY_PLAYER
+    ENTITY_PLAYER = 0
 };
 
 typedef struct {
@@ -40,7 +40,6 @@ typedef struct {
 
 extern Entity Entities[MAX_ENTITIES];
 
-void init_entities();
-void add_entity()
+void add_entity();
 
 #endif
