@@ -90,7 +90,6 @@ static void handlecamera(){
 u16 ind = TILE_USER_INDEX;
         u16 state;
         u16 state_old;
-fix16 jDist;
 
 int main() {
     // Initialisierung
@@ -111,6 +110,9 @@ int main() {
     ind += layer_bg.tileset->numTile;
     VDP_setScrollingMode(HSCROLL_PLANE,VSCROLL_PLANE);
         
+    init_entities();
+    add_entity();
+
     if (show_level){
         // Annahme: our_tileset und our_level_map sind definiert
         // Falls Sie Fehler bekommen, liegt es an fehlenden Includes oder Variablen.
@@ -120,21 +122,10 @@ int main() {
         ind += our_tileset.numTile;
     }
 
-    // --- SPIELER INIT ---
-    player.width = 12; // Größe anpassen
-    player.height = 12;
-    player.x = FIX32(300); // Startposition
-    player.y = FIX32(100);
-    player.x_old = player.x;
-    player.y_old = player.y;
-    player.vx = FIX32(0); // Verwende FIX32 für Geschw.
-    player.vy = FIX32(0); // Verwende FIX32 für Geschw.
-    player.jumping = TRUE;
-    player.anim_index = FIX16(1); // FIX16 für Animationsindex beibehalten
+
 
     // Spieler Sprite erstellen
     // player.x_s16 wird später in der Loop durch pos_f32_s16 gesetzt
-    player.sprite = SPR_addSprite(&player_sprite, F32_toInt(player.x), F32_toInt(player.y), TILE_ATTR(PAL1, 0, FALSE, FALSE));
     // Frame 0 setzen
     SPR_setAnimAndFrame(player.sprite, 0, 0);
 
@@ -142,11 +133,11 @@ int main() {
     while(1) {
         // Debug-Informationen
         // Korrektur: %d -> %ld für s32-Werte (F32_toInt)
-        sprintf(info, "X:%d Y:%d VX:%ld VY:%ld", player.x_s16, player.y_s16, F32_toInt(player.vx), F32_toInt(player.vy));
+        sprintf(info, "X:%d Y:%d VX:%ld VY:%ld        ", player.x_s16, player.y_s16, player.vx, player.vy);
         VDP_drawText(info, 0, 0);
         sprintf(info, "GND:%d         ", player.isOnGround);
         VDP_drawText(info, 0, 1);
-        
+                
         // 1. Physik vorbereiten (Alte Position für Deltatime/Kamera-Berechnung)
         player.x_old = player.x;
         player.y_old = player.y;
@@ -157,73 +148,58 @@ int main() {
         // Sprung
         if ((state & BUTTON_A) && !(state_old & BUTTON_A) && player.isOnGround) {
             player.isOnGround = FALSE;
-            jDist = player.vx;
-            player.vy = FIX32(-4.0); // Starker Sprungimpuls
+            player.vy = FIX16(-5.0); // Starker Sprungimpuls
         }
 
         if (!(state & BUTTON_A) && (state_old & BUTTON_A) && player.vy < FIX16(0) ) {
-            player.vy = FIX16(0);
+            player.vy = FIX16(0.4);
         }
 
         // Horizontaler Schub
         if (state & BUTTON_LEFT) {
-            // Korrektur: FIX32Sub -> fix32Sub
-                if (player.isOnGround){
-                    player.vx = player.vx - FIX32(1);
-                }else {               
-                    player.vx = player.vx - FIX32(0.3);
-                    if (player.vx < FIX16(-3)) player.vx = FIX16(-3);
-                }
-            } else if (state & BUTTON_RIGHT) {
-            // Korrektur: FIX32Add -> fix32Add
-            
-            if (player.isOnGround)
-            player.vx = player.vx + FIX32(1);
-            else {
-                player.vx = player.vx + FIX32(0.3);
-               if (player.vx > FIX16(1)) player.vx = FIX16(1);
+            player.vx = player.vx - FIX16(1);
 
-            }         
+            } else if (state & BUTTON_RIGHT) {
+
+            player.vx = player.vx + FIX16(1);
+      
         }
 
         state_old = state;
 
         // --- 3. Physik-Update ---
 
-        // Gravity anwenden
-        if (player.vy < FIX16(0)) player.vy = player.vy + FIX32(0.2);
-        else if (!player.isOnGround) player.vy = player.vy + FIX32(0.4); // Gravity
+if (!player.isOnGround) {
+    if (player.vy < FIX16(0)) {
+        // Ball steigt (vy ist negativ). Wir wollen langsam verlangsamen.
+        player.vy = player.vy + FIX16(0.25);  // Setzen Sie hier den KLEINEREN Wert (z.B. 1)
+    } else {
+        // Ball fällt (vy ist Null oder positiv). Wir wollen schnell beschleunigen.
+        player.vy = player.vy + FIX16(0.4); // Setzen Sie hier den GRÖSSEREN Wert (z.B. 3)
+    }
+}
 
-        // Dämpfung / Reibung anwenden
-        if (player.isOnGround) {
              // Stärkere horizontale Reibung auf dem Boden
             // Korrektur: F32_mul -> fix32Mul
-            player.vx = F32_mul(player.vx, FIX32(0.7)); 
-        } else {
-             // Geringere Reibung in der Luft
-             player.vx = F32_mul(player.vx, FIX32(1));
-        }
-
-        // Vertikale Dämpfung (oft unnötig bei Gravity)
-        // player.vy = fix32Mul(player.vy, FIX32(0.98)); 
+            player.vx = F16_mul(player.vx, FIX16(0.7)); 
 
         // Geschwindigkeit kappen (Clamping)
-        if (player.vx > FIX32(7.0)) player.vx = FIX32(7.0);
-        if (player.vx < FIX32(-7.0)) player.vx = FIX32(-7.0);
-        if (player.vy > FIX32(10.0)) player.vy = FIX32(10.0); // Max. Fallgeschwindigkeit
+        if (player.vx > FIX16(7.0)) player.vx = FIX16(7.0);
+        if (player.vx < FIX16(-7.0)) player.vx = FIX16(-7.0);
+        if (player.vy > FIX16(10.0)) player.vy = FIX16(10.0); // Max. Fallgeschwindigkeit
         
         // Zu feine Bewegungen auf null setzen (stoppt das "Schlängeln" bei langsamen Geschw.)
-        if (F32_toRoundedInt(player.vx) == 0 && (player.vx < FIX32(0.1) && player.vx > FIX32(-0.1))) {
-            player.vx = FIX32(0);
+        if (F32_toRoundedInt(player.vx) == 0 && (player.vx < FIX16(0.1) && player.vx > FIX16(-0.1))) {
+            player.vx = FIX16(0);
         }
-        if (F32_toRoundedInt(player.vy) == 0 && (player.vy < FIX32(0.1) && player.vy > FIX32(-0.1))) {
+        if (F16_toRoundedInt(player.vy) == 0 && (player.vy < FIX16(0.1) && player.vy > FIX16(-0.1))) {
             // Nur nullen, wenn am Boden, sonst kann es den Fall stoppen
-            if (player.isOnGround) player.vy = FIX32(0);
+            if (player.isOnGround) player.vy = FIX16(0);
         }
 
         // 4. POSITION INTEGRIEREN (Hier wird die neue Position berechnet!)
-        player.x = player.x + player.vx;
-        player.y = player.y + player.vy;
+        player.x = player.x + F16_toFix32(player.vx);
+        player.y = player.y + F16_toFix32(player.vy);
 
         // 5. Kollision prüfen (Korrigiert die Position und setzt vy/vx auf 0 bei Treffer)
         check_collision(&player);
@@ -232,11 +208,11 @@ int main() {
 
         // Animation (Roll-Effekt)
         // Korrektur: FIX16Add -> fix16Add, F32ToFIX16 -> F32_toFix16
-        player.anim_index = player.anim_index + F32_toFix16(player.vx); 
+        player.anim_index += F32_toInt(F32_mul(player.x_old - player.x, FIX32(1.2))); 
 
-        if (player.anim_index < FIX16(1)) player.anim_index += FIX16(10);
-        if (player.anim_index > FIX16(10)) player.anim_index -= FIX16(10);
-        SPR_setAnimAndFrame(player.sprite, 0, F16_toInt(player.anim_index));
+        if (player.anim_index < 10) player.anim_index += 100;
+        if (player.anim_index > 100) player.anim_index -= 100;
+        SPR_setAnimAndFrame(player.sprite, 0, player.anim_index / 10);
 
         handlecamera();
 

@@ -2,6 +2,13 @@
 #define ENTITY_H
 
 #include <genesis.h>
+#define MAX_ENTITIES 20
+
+extern s8 entities_count;
+
+enum ENTITY_TYPE{
+    ENTITY_PLAYER
+};
 
 typedef struct {
     fix32 x;
@@ -25,10 +32,15 @@ typedef struct {
     bool jumping;
 
     Sprite* sprite;
-    f16 anim_index;
+    u8 anim_index;
     bool isOnGround;
 
-    u8 type;   // 0=player, 1=enemy, 2=bullet, usw.
+    enum ENTITY_TYPE type;   // 0=player, 1=enemy, 2=bullet, usw.
 } Entity;
+
+extern Entity Entities[MAX_ENTITIES];
+
+void init_entities();
+void add_entity()
 
 #endif

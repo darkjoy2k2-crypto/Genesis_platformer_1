@@ -14,6 +14,6 @@
 #define cam_max_y 176
 
 // Die Map selbst (extern, damit nur eine Instanz existiert)
-extern const u16 map_data[MAP_W * MAP_H];
+extern const u16 map_collision_data[MAP_W * MAP_H];
 extern const fix32 OFFSET;
 #endif
