@@ -1,0 +1,298 @@
+#include "collision.h"
+// #include "map.h"     // MAP_W, MAP_H, TILE_SIZE, map_data
+#include "level.h"
+#include "entity.h"
+
+#define OFFSET FIX32(0.1)
+
+// Debug: store tile indices of the four corners
+u16 debug_corner_tiles[4] = {0, 0, 0, 0};
+
+// ------------------------------
+// Top
+// ------------------------------
+bool collideTop(Entity* e, u16 row, u16 y_offset) {
+    u16 top = row * TILE_SIZE + y_offset;
+    u16 pBottom = e->y_u16 + e->height;
+    u16 pBottomOld = e->y_old_u16 + e->height;
+
+    // Treat exact contact (==) as a top collision so horizontal checks don't block
+    if (pBottom >= top && pBottomOld <= top) {
+        e->jumping = FALSE;
+        e->vy = 0;
+        e->y_u16 = F32_toInt(F32(top) - F32(e->height) - OFFSET);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+// ------------------------------
+// Bottom
+// ------------------------------
+bool collideBottom(Entity* e, u16 row, u16 y_offset) {
+    u16 bottom = row * TILE_SIZE + y_offset;
+
+    if (e->y_u16 < bottom && e->y_old_u16 >= bottom) {
+        e->vy = 0;
+        e->y_u16 = F32_toInt(F32(bottom) - OFFSET);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+// ------------------------------
+// Left
+// ------------------------------
+bool collideLeft(Entity* e, u16 col, u16 row) {
+    fix32 left = col * TILE_SIZE;
+
+    // Only block horizontally if the entity has a meaningful vertical overlap with the tile
+    s16 tileTop = row * TILE_SIZE;
+    s16 tileBottom = tileTop + TILE_SIZE;
+    s16 overlapTop = (e->y_u16 > tileTop) ? e->y_u16 : tileTop;
+    s16 overlapBottom = ((e->y_u16 + e->height) < tileBottom) ? (e->y_u16 + e->height) : tileBottom;
+    s16 overlap = overlapBottom - overlapTop;
+    const s16 MIN_VERTICAL_OVERLAP = 2; // pixels
+    if (overlap < MIN_VERTICAL_OVERLAP) return FALSE;
+
+    if (e->x_u16 + e->width > left && e->x_old_u16 + e->width <= left) {
+        e->vx = 0;
+        e->x_u16 = F32_toInt(F32(left) - F32(e->width) - OFFSET);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+// ------------------------------
+// Right
+// ------------------------------
+bool collideRight(Entity* e, u16 col, u16 row) {
+    fix32 right = col * TILE_SIZE + TILE_SIZE;
+
+    // Only block horizontally if the entity has a meaningful vertical overlap with the tile
+    s16 tileTop = row * TILE_SIZE;
+    s16 tileBottom = tileTop + TILE_SIZE;
+    s16 overlapTop = (e->y_u16 > tileTop) ? e->y_u16 : tileTop;
+    s16 overlapBottom = ((e->y_u16 + e->height) < tileBottom) ? (e->y_u16 + e->height) : tileBottom;
+    s16 overlap = overlapBottom - overlapTop;
+    const s16 MIN_VERTICAL_OVERLAP = 2; // pixels
+    //Bif (overlap < MIN_VERTICAL_OVERLAP) return FALSE;
+
+    if (e->x_u16 < right && e->x_old_u16 >= right) {
+        e->vx = 0;
+        e->x_u16 = right;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+// ------------------------------
+// Slope
+// ------------------------------
+bool collideSlopeTop(Entity* e, u16 col, u16 row, fix32 slope, u16 y_offset) {
+
+    int origin_x = col * TILE_SIZE;
+    int origin_y = row * TILE_SIZE + y_offset;
+
+    int current_x, old_x;
+
+    if (slope < FIX32(0)) {
+        current_x = (int)e->x_u16 + e->width - origin_x;
+        old_x     = (int)e->x_old_u16 + e->width - origin_x;
+    } else {
+        current_x = (int)e->x_u16 - origin_x;
+        old_x     = (int)e->x_old_u16 - origin_x;
+    }
+
+    int current_y = (int)e->y_u16 + e->height - origin_y;
+    int old_y     = (int)e->y_old_u16 + e->height - origin_y;
+
+    fix32 current_cross = F32_mul(FIX32(current_x), slope) - FIX32(current_y);
+    fix32 old_cross     = F32_mul(FIX32(old_x), slope)     - FIX32(old_y);
+
+    int top;
+    if (slope < FIX32(0))
+        top = (row * TILE_SIZE) + TILE_SIZE + F32_toInt(F32_mul(FIX32(y_offset), slope));
+    else
+        top = row * TILE_SIZE + y_offset;
+
+    bool insideX = (current_x >= 0 && current_x <= TILE_SIZE);
+
+    int pBottom    = (int)e->y_u16 + e->height;
+    int pBottomOld = (int)e->y_old_u16 + e->height;
+
+    if ((!insideX) &&
+       ((pBottom > top && pBottomOld <= top) ||
+        (current_cross < FIX32(1) && old_cross > FIX32(-1)))) 
+    {
+        e->jumping = FALSE;
+        e->vy = 0;
+        e->y_u16 = F32_toInt(FIX32(top) - FIX32(e->height) + OFFSET);
+        return TRUE;
+    }
+    else if (current_cross < FIX32(1) && old_cross > FIX32(-1))
+    {
+        e->jumping = FALSE;
+        e->vy = 0;
+
+        fix32 newY = F32_mul(FIX32(row), FIX32(TILE_SIZE))
+                   + F32_mul(slope, FIX32(current_x))
+                   + FIX32(y_offset);
+
+        e->y_u16 = F32_toInt(newY - (FIX32(e->height) + OFFSET));
+        return TRUE;
+    }
+
+
+        // nur blocken, wenn der Spieler tatsächlich horizontal hineinfährt
+        s16 bottom = row * TILE_SIZE + TILE_SIZE;
+        s16 right = col * TILE_SIZE + TILE_SIZE;
+
+        if (e->x_u16 < right && e->x_old_u16 >= right && e->y_u16 < bottom && e->y_u16 + e->height > bottom)
+    {
+        e->vx = 0;
+        e->x_u16 = right;
+        return TRUE;
+    
+}
+
+
+
+
+    return FALSE;
+}
+
+// ------------------------------
+// Curve (Parabel)
+// ------------------------------
+void handleCurve(Entity* e, u16 col, u16 row) {
+
+    s16 objCenterX = (s16)(e->x_u16 + (e->width >> 1));
+    s16 tileCenterX = (s16)((col * TILE_SIZE) + (TILE_SIZE >> 1));
+
+    s16 dx = objCenterX - tileCenterX;
+    fix32 x = F32(dx);
+
+    fix32 y_vertex = F32((row * TILE_SIZE) + (TILE_SIZE >> 1));
+    const fix32 coeff = FIX32(0.125);
+
+    u16 top = F32_toInt(F32_mul(coeff, F32_mul(x, x)) + y_vertex);
+
+    if ((e->y_u16 + e->height) > top) {
+        e->jumping = FALSE;
+        e->vy = 0;
+        e->y_u16 = F32_toInt(F32(top) - (FIX32(e->height) - OFFSET));
+    }
+}
+
+// ------------------------------
+// resolveTile
+// ------------------------------
+void resolveTile(Entity* e, u16 tileType, u16 col, u16 row) {
+
+    switch(tileType) {
+        case 0: break;
+        case 1:
+            if (collideTop(e, row, 0)) return;
+            if (collideLeft(e, col, row)) return;
+            if (collideRight(e, col, row)) return;
+            collideBottom(e, row, 16);
+            break;
+
+        case 6:
+            if (collideTop(e, row, TILE_SIZE * 0.5)) return;
+
+            if (e->y_u16 + e->height > row * TILE_SIZE + (TILE_SIZE >> 1)){
+                if (collideLeft(e, col, row)) return;
+                if (collideRight(e, col, row)) return;
+            }
+
+            collideBottom(e, row, 16);
+            break;
+
+        case 7:
+            collideTop(e, row, TILE_SIZE * 0.5);
+            break;
+
+        case 8:
+            collideSlopeTop(e, col, row, FIX32(-1), TILE_SIZE);
+            break;
+
+        case 9:
+            collideSlopeTop(e, col, row, FIX32(-1), TILE_SIZE);
+            break;
+
+        case 10:
+            collideSlopeTop(e, col, row, FIX32(1), 0);
+            break;
+
+        case 11:
+            collideSlopeTop(e, col, row, FIX32(-0.5), TILE_SIZE);
+            break;
+
+        case 12:
+            collideSlopeTop(e, col, row, FIX32(0.5), TILE_SIZE * 0.5);
+            break;
+
+        case 13:
+            if(collideSlopeTop(e, col, row, FIX32(1), 0)) return;
+            if (collideLeft(e, col, row)) return;
+
+            collideBottom(e, row, 16);
+            break;
+
+        case 14:
+            handleCurve(e, col, row);
+            break;
+        case 96: collideTop(e, row, 0); break;
+        case 97: collideRight(e, col, row); break;
+        case 98: collideBottom(e, row, 16); break;
+        case 99: collideLeft(e, col, row); break;
+        default:
+            if (collideTop(e, row, 0)) return;
+            if (collideLeft(e, col, row)) return;
+            if (collideRight(e, col, row)) return;
+            collideBottom(e, row, 16);
+        break;
+    }
+}
+
+// ------------------------------
+// checkCollisionAt
+// ------------------------------
+void checkCollisionAt(int corner, Entity* e, u16 x, u16 y) {
+    s16 col = x / TILE_SIZE;
+    s16 row = y / TILE_SIZE;
+
+    if (col < 0 || col >= MAP_W || row < 0 || row >= MAP_H) return;
+
+    u16 tile = map_data[row * MAP_W + col];
+    debug_corner_tiles[corner] = tile;
+
+    if (tile != 0) {
+        resolveTile(e, tile, col, row);
+    }
+}
+
+// ------------------------------
+// handleCollisions
+// ------------------------------
+void handleCollisions(Entity* e) {
+
+    e->x_u16 = F32_toInt(e->x);
+    e->y_u16 = F32_toInt(e->y);
+
+    e->x_old_u16 = F32_toInt(e->x_old);
+    e->y_old_u16 = F32_toInt(e->y_old);  
+ 
+    checkCollisionAt(0, e, e->x_u16,                  e->y_u16);
+    checkCollisionAt(1, e, e->x_u16 + e->width,       e->y_u16);
+
+    checkCollisionAt(2, e, e->x_u16,                  e->y_u16 + e->height);
+    checkCollisionAt(3, e, e->x_u16 + e->width,       e->y_u16 + e->height);
+
+    e->x     = FIX32(e->x_u16);
+    e->y     = FIX32(e->y_u16);
+    e->x_old = FIX32(e->x_old_u16);
+    e->y_old = FIX32(e->y_old_u16);
+}

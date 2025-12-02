@@ -1,0 +1,76 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "command": "cmd",
+    "type": "shell",
+    "args": ["/C"],
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "build project",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "make",
+                "run",
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "group": "build",
+            "label": "run",
+            "command": "${env:GDK}\\kega\\fusion.exe",
+            "args": [
+                "${command:extension.commandvariable.file.fileDirname1Up}\\out\\rom.bin"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "group": "build",
+            "label": "make",
+            "command": "${env:GDK}\\bin\\make",
+            "args": [
+                "-f",
+                "${env:GDK}\\makefile.gen"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "clean",
+            "command": "${env:GDK}\\bin\\make",
+            "args": [
+                "clean",
+                "-f",
+                "${env:GDK}\\makefile.gen"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}
