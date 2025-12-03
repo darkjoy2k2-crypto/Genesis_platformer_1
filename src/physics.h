@@ -2,7 +2,7 @@
 #define PHYSICS_H
 
 #include <genesis.h>
-#include "entity.h"
+#include "entity_list.h"
 
 void handle_all_entities();
 void handle_physics(Entity* e);

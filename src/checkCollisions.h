@@ -1,7 +1,7 @@
 #ifndef _CHECK_COLLISIONS_H_
 #define _CHECK_COLLISIONS_H_
 
-#include "entity.h"
+#include "entity_list.h"
 
 // Deklaration der Kollisionsprüfungsfunktion
 // Diese Funktion implementiert die Logik zur Kollision mit Kacheln.

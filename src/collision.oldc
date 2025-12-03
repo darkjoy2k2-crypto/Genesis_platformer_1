@@ -1,7 +1,7 @@
 #include "collision.h"
 // #include "map.h"     // MAP_W, MAP_H, TILE_SIZE, map_data
 #include "level.h"
-#include "entity.h"
+#include "entity_list.h"
 
 #define OFFSET FIX32(0.1)
 

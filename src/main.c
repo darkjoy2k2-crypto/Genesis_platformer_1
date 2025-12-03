@@ -1,8 +1,7 @@
 #include <genesis.h>
 #include "title.h" // Stellt level_bg und player_sprite bereit
 #include "level.h"
-#include "entity.h"
-//#include "collision.h"
+#include "entity_list.h"
 #include "checkCollisions.h"
 #include "physics.h"
 
@@ -14,11 +13,12 @@ Map* level_1_map;
 bool show_level = true;
 
 int i = 0;
+int player_id = 0;
 
 static void handlecamera(Entity* player){
     // Achtung: player.x_s16 und player.y_s16 werden von check_collision aktualisiert
-    int p_int_x = player->x_s16;
-    int p_int_y = player->y_s16;
+    int p_int_x = player->x;
+    int p_int_y = player->y;
 
     int p_screen_x = p_int_x - camera_position.x;
     int p_screen_y = p_int_y - camera_position.y;
@@ -83,6 +83,7 @@ static void handlecamera(Entity* player){
 u16 ind = TILE_USER_INDEX;
 
 
+
 void update_animation(Entity* e){
     e->anim_index += F32_toInt(F32_mul(e->x_old - e->x, FIX32(1.2))); 
 
@@ -110,7 +111,8 @@ int main() {
     ind += layer_bg.tileset->numTile;
     VDP_setScrollingMode(HSCROLL_PLANE,VSCROLL_PLANE);
         
-    add_entity();
+    init_entities();
+    player_id = create_entity(100,100,12,12,ENTITY_PLAYER);
 
     if (show_level){
         // Annahme: our_tileset und our_level_map sind definiert
@@ -129,18 +131,12 @@ int main() {
 
     // --- GAME LOOP ---
     while(1) {
-        // Debug-Informationen
-        // Korrektur: %d -> %ld für s32-Werte (F32_toInt)
-        sprintf(info, "X:%d Y:%d VX:%ld VY:%ld        ", Entities[1].x_s16, Entities[1].y_s16, Entities[1].vx, Entities[1].vy);
-        VDP_drawText(info, 0, 0);
-        sprintf(info, "GND:%d         ", Entities[1].isOnGround);
-        VDP_drawText(info, 0, 1);
-                
+             
         handle_all_entities();
 
-        update_animation(&Entities[1]);
+        update_animation(&entities[player_id]);
 
-        handlecamera(&Entities[1]);
+        handlecamera(&entities[player_id]);
 
         SPR_update(); 
         SYS_doVBlankProcess();

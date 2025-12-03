@@ -52,4 +52,4 @@ out/src/checkCollisions.o: src/checkCollisions.c \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/string.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/maths.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/dma.h \
- src/checkCollisions.h src/entity.h src/level.h
+ src/checkCollisions.h src/entity_list.h src/level.h
