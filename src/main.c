@@ -16,7 +16,6 @@ int i = 0;
 int player_id = 0;
 
 static void handlecamera(Entity* player){
-    // Achtung: player.x_s16 und player.y_s16 werden von check_collision aktualisiert
     int p_int_x = player->x;
     int p_int_y = player->y;
 
@@ -85,11 +84,17 @@ u16 ind = TILE_USER_INDEX;
 
 
 void update_animation(Entity* e){
-    e->anim_index += F32_toInt(F32_mul(e->x_old - e->x, FIX32(1.2))); 
+    int dx = e->x_old - e->x;
 
-    if (e->anim_index < 10) e->anim_index += 100;
-    if (e->anim_index > 100) e->anim_index -= 100;
-    SPR_setAnimAndFrame(e->sprite, 0, e->anim_index / 10);
+
+    e->anim_index += dx ; // approx *1.2
+
+    if (e->anim_index < 0) e->anim_index += 50;
+    if (e->anim_index > 49) e->anim_index -= 50;
+
+    SPR_setAnimAndFrame(e->sprite, 0, e->anim_index / 6);
+    sprintf(info, "AF: %d STATE: %d      ",e->anim_index, e->state);
+    VDP_drawText(info, 0, 0);
 }
 
 int main() {
@@ -112,7 +117,7 @@ int main() {
     VDP_setScrollingMode(HSCROLL_PLANE,VSCROLL_PLANE);
         
     init_entities();
-    player_id = create_entity(100,100,12,12,ENTITY_PLAYER);
+    player_id = create_entity(50,50,12,12,ENTITY_PLAYER);
 
     if (show_level){
         // Annahme: our_tileset und our_level_map sind definiert
@@ -137,6 +142,9 @@ int main() {
         update_animation(&entities[player_id]);
 
         handlecamera(&entities[player_id]);
+
+       entities[player_id].x_old = entities[player_id].x;
+       entities[player_id].y_old = entities[player_id].y;
 
         SPR_update(); 
         SYS_doVBlankProcess();

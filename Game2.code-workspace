@@ -9,7 +9,8 @@
 			"genesis.h": "c",
 			"collision.h": "c",
 			"entity_list.h": "c",
-			"*.oldc": "c"
+			"*.oldc": "c",
+			"*.oldh": "c"
 		}
 	}
 }

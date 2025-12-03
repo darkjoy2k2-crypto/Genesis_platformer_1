@@ -50,10 +50,11 @@ static bool isTileSolid(s16 world_x, s16 world_y)
 // Haupt-Kollisionslogik-Funktion
 void check_collision(Entity* entity)
 {
+    bool isOnGround = false;
     // 1. Speichere die gewünschte (aber möglicherweise illegale) Position und setze auf alte, sichere Position zurück.
     // main.c hat die Integration bereits durchgeführt. Wir setzen zurück und machen die Sweeps nacheinander.
-    fix32 desired_x = entity->x;
-    fix32 desired_y = entity->y;
+    s16 desired_x = entity->x;
+    s16 desired_y = entity->y;
 
     entity->x = entity->x_old;
     entity->y = entity->y_old;
@@ -86,7 +87,7 @@ void check_collision(Entity* entity)
             if (entity->x > entity->x_old) // Nach rechts bewegt
             {
                 s16 tile_left = (check_x / TILE_SIZE_PX) * TILE_SIZE_PX;
-                entity->x = tile_left - (entity->width >> 1);
+                entity->x = tile_left - (entity->width >> 1) - 1;
             }
             else // Nach links bewegt
             {
@@ -123,19 +124,23 @@ void check_collision(Entity* entity)
             {
                 // Spieler auf die obere Kante der kollidierten Kachel verschieben
                 s16 tile_top = (check_y / TILE_SIZE_PX) * TILE_SIZE_PX;
-                entity->y = FIX32(tile_top - (entity->height / 2));
-                
-                entity->state = P_GROUNDED; // Landung erfolgt
+                entity->y = tile_top - (entity->height >> 1);
+                entity->vy = 0;
+                isOnGround = true; // Landung erfolgt
             }
             else // Nach oben bewegt (Kopf gestoßen)
             {
                 // Spieler auf die untere Kante der kollidierten Kachel verschieben
                 s16 tile_bottom = ((check_y / TILE_SIZE_PX) + 1) * TILE_SIZE_PX;
                 entity->y = tile_bottom + (entity->height >> 1);
+                entity->vy = 0;
             }
 
             // Vertikale Geschwindigkeit auf Null setzen (Hard Stop in Y-Richtung)
-            entity->vy = 0;
+            
+
+            
+            
         }
     }
     
@@ -154,8 +159,13 @@ void check_collision(Entity* entity)
     if (isTileSolid(check_x1_ground, check_y_ground) || isTileSolid(check_x2_ground, check_y_ground))
     {
         // Wir stehen auf dem Boden.
-        entity->state = P_GROUNDED;
+        isOnGround = true;
     }
+
+
+    if (isOnGround) entity->state = P_GROUNDED;
+
+    else if (entity->state != P_JUMPING) entity-> state = P_FALLING;
     // WICHTIG: Wenn der Spieler bereits durch den Y-Sweep auf TRUE gesetzt wurde, 
     // muss die statische Prüfung dies bestätigen, oder der nächste Frame korrigiert es.
 }

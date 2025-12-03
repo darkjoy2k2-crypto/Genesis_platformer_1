@@ -32,7 +32,7 @@ typedef struct {
     u16 height;
 
     u16 state;
-    u16 anim_index;
+    s16 anim_index;
 
     Sprite* sprite;
     enum ENTITY_TYPE type;

@@ -16,14 +16,16 @@ void handle_all_entities(){
 
 void handle_input(Entity* e){
     state = JOY_readJoypad(JOY_1);
-
+    e->x_old = e->x;
+    e->y_old = e->y;
+    if (e->state == E_ACTIVE) e->state = P_FALLING;
     // Sprung
     if ((state & BUTTON_A) && !(state_old & BUTTON_A) && e->state == P_GROUNDED) {
         e->state = P_JUMPING;
         e->vy = -500; 
     }
 
-    if (!(state & BUTTON_A) && (state_old & BUTTON_A) && e->vy < FIX16(0) ) {
+    if (!(state & BUTTON_A) && (state_old & BUTTON_A) && e->vy < 0 ) {
         e->vy = 40;
     }
 
@@ -39,17 +41,18 @@ void handle_input(Entity* e){
 
     state_old = state;
 
-        if (e->vy < 0) 
+        if (e->vy > 0) 
             e->state = P_FALLING;
 
-        if (e->vy > 0) 
+        if (e->vy < 0) 
             e->state = P_JUMPING;
 
     // Gravity  in Jump / falling
     if (e->state == P_JUMPING) {
-        e->vy = e->vy + FIX16(25);  
-    } else if (e->state == P_FALLING){
-        e->vy = e->vy + FIX16(40); 
+        e->vy = e->vy + 25;  
+    } else if (e->state == P_FALLING) {
+
+        e->vy = e->vy + 40; 
     }
     
 
