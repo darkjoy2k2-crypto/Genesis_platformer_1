@@ -26,7 +26,9 @@ int create_entity(s16 x, s16 y, u16 width, u16 height, u16 type) {
             e->anim_index = e->vx = e->vy = 0;
             e->width = width;
             e->height = height;
-            e->state = E_ACTIVE;
+            e->state = e->state_old = E_ACTIVE;
+            
+            e->timer_grace = e->timer_buffer = 0;
             e->sprite = SPR_addSprite(&player_sprite, x, y, TILE_ATTR(PAL1, 0, FALSE, FALSE));
             if (e->sprite) {
                 SPR_setAnimAndFrame(e->sprite, 0, 0);

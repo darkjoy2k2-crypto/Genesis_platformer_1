@@ -10,13 +10,15 @@ enum ENTITY_TYPE {
 enum ENTITY_STATE {
     E_INACTIVE = 0,
     E_ACTIVE = 1,
-
-    P_DEAD = 2,
-    P_ALIVE = 3,
-    P_GROUNDED = 4,
-    P_JUMPING = 5,
-    P_FALLING = 6,
-    P_SAFE = 7
+    P_IDLE = 2,
+    P_DEAD = 3,
+    P_ALIVE = 4,
+    P_GROUNDED = 5,
+    P_JUMPING = 6,
+    P_FALLING = 7,
+    P_RUNNING = 8,
+    P_EDGE_GRAB = 9,
+    P_SAFE = 10
 };
 
 typedef struct {
@@ -32,7 +34,13 @@ typedef struct {
     u16 height;
 
     u16 state;
+    u16 state_old;
+    u16 state_old_joy;
+    
     s16 anim_index;
+
+    s16 timer_grace;
+    s16 timer_buffer;
 
     Sprite* sprite;
     enum ENTITY_TYPE type;

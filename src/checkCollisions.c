@@ -1,58 +1,34 @@
 #include <genesis.h>
 #include "checkCollisions.h"
 #include "entity_list.h"
-#include "level.h" // Muss für die Map-Struktur und Definitionen enthalten sein
+#include "level.h" 
 
-// Wichtige Annahme: Die Kachelgröße ist 16x16 Pixel.
-// Um Konflikte mit der SGDK-Definition zu vermeiden (Warning "TILE_SIZE" redefined), wurde TILE_SIZE in TILE_SIZE_PX umbenannt.
 #define TILE_SIZE_PX 16
-// Map-Dimensionen. Stellen Sie sicher, dass diese mit Ihren definierten MAP_W/MAP_H Konstanten übereinstimmen.
 #define MAP_WIDTH_TILES 60
 #define MAP_HEIGHT_TILES 40
+#define EDGE_GRAB_FREE_HEIGHT 8
+// NEU: Toleranz für die horizontale Korrektur beim Deckenstoß
+#define CORNER_CORRECTION_TOLERANCE 6  
 
-// KORREKTUR: Wir verwenden nun das rohe Daten-Array für die Kollision,
-// um den Fehler 'Map' has no member named 'data' zu vermeiden.
-// Diese Variable MUSS in einer anderen .c-Datei (z.B. main.c oder level.c) als:
-// const u16 map_collision_data[MAP_WIDTH_TILES * MAP_HEIGHT_TILES] = { ... };
-// definiert werden. Die Werte 0 bedeuten leer (keine Kollision), > 0 bedeuten solide.
+static u16 getTileIndex(s16 world_x, s16 world_y){
 
-// Gibt den Kachel-Index an der gegebenen Weltposition (Pixel) auf Plane A zurück.
-// Kacheln mit Index 1 (oder höher) werden als solide angenommen.
-static u16 getTileIndex(s16 world_x, s16 world_y)
-{
-    // Weltkoordinaten in Kachelkoordinaten umrechnen
     s16 tile_x = world_x / TILE_SIZE_PX;
     s16 tile_y = world_y / TILE_SIZE_PX;
 
-    // Prüfung auf Map-Grenzen
-    if (tile_x < 0 || tile_y < 0 || tile_x >= MAP_WIDTH_TILES || tile_y >= MAP_HEIGHT_TILES)
-    {
-        // Außerhalb der Map -> Als nicht-solide behandeln
-        return 0;
-    }
+    if (tile_x < 0 || tile_y < 0 || tile_x >= MAP_WIDTH_TILES || tile_y >= MAP_HEIGHT_TILES) return 0;
 
-    // Zugriff auf das rohe Kollisionsdaten-Array.
-    // Index = y * map_width + x
     u16 tile_index = map_collision_data[tile_y * MAP_WIDTH_TILES + tile_x];
 
-    // Wir nehmen an, dass Kacheln mit Index 1 oder höher solide sind.
-    // Daher ist die Bedingung `tile_index > 0` ausreichend.
     return tile_index;
 }
 
-// Prüft, ob eine Kachel an der gegebenen Weltposition solide ist.
-static bool isTileSolid(s16 world_x, s16 world_y)
-{
-    // Fürs Erste: Ist der Kachel-Index > 0?
+static bool isTileSolid(s16 world_x, s16 world_y){
     return getTileIndex(world_x, world_y) > 0;
 }
 
-// Haupt-Kollisionslogik-Funktion
-void check_collision(Entity* entity)
-{
+void check_collision(Entity* entity){
+
     bool isOnGround = false;
-    // 1. Speichere die gewünschte (aber möglicherweise illegale) Position und setze auf alte, sichere Position zurück.
-    // main.c hat die Integration bereits durchgeführt. Wir setzen zurück und machen die Sweeps nacheinander.
     s16 desired_x = entity->x;
     s16 desired_y = entity->y;
 
@@ -68,34 +44,96 @@ void check_collision(Entity* entity)
     s16 top_x_check = entity->y - (entity->height >> 1);
     s16 bottom_x_check = entity->y + (entity->height >> 1);
 
-    if (entity->vx != 0)
-    {
-        // Prüfpunkte an den Ecken der Bounding Box (vorne)
-        s16 check_x = (entity->vx > 0) ? right_x_check : left_x_check;
-        
-        // Obere Kante (ca. 1 Pixel von oben)
-        s16 check_y1 = top_x_check + 1;
-        // Untere Kante (ca. 1 Pixel von unten)
-        s16 check_y2 = bottom_x_check - 1;
+if (entity->vx != 0)
+{
+    // Bounding Box Definition (Die Variablen nutzen bereits die aktuelle entity->x und entity->y von oben, 
+    // daher wurden die redundanten Neudefinitionen entfernt, um Warnungen zu vermeiden.)
+    
+    // Prüfpunkte an den Ecken der Bounding Box (vorne)
+    s16 check_x = (entity->vx > 0) ? right_x_check : left_x_check;
+    
+    // Obere Kante (ca. 1 Pixel von oben)
+    s16 check_y1 = top_x_check + 1;
+    // Untere Kante (ca. 1 Pixel von unten)
+    s16 check_y2 = bottom_x_check - 1;
 
-        if (isTileSolid(check_x, check_y1) || isTileSolid(check_x, check_y2))
+    // Normale X-Kollision prüfen
+    if (isTileSolid(check_x, check_y1) || isTileSolid(check_x, check_y2))
+    {
+        // Kollision gefunden! (Wand getroffen)
+        entity->vx = 0;
+
+        // ----------------------------------------------------------------------
+        // KANTEN-GREIF-PRÜFUNG
+        // ----------------------------------------------------------------------
+
+        // Nur prüfen, wenn der Spieler springt oder fällt (nicht grounded oder neutral)
+        if (entity->state == P_JUMPING || entity->state == P_EDGE_GRAB)
         {
-            // Kollision gefunden! (Wand getroffen)
-            entity->vx = 0;
+            s16 free_pixels = 0;
             
-            // Spieler an die Kachelkante verschieben (Alignment)
-            if (entity->x > entity->x_old) // Nach rechts bewegt
+            // Loop, um die oberen EDGE_GRAB_FREE_HEIGHT Pixel zu prüfen.
+            for (s16 y_offset = 1; y_offset <= EDGE_GRAB_FREE_HEIGHT; y_offset++)
             {
-                s16 tile_left = (check_x / TILE_SIZE_PX) * TILE_SIZE_PX;
-                entity->x = tile_left - (entity->width >> 1) - 1;
+                s16 check_y_grab = top_x_check + y_offset;
+                
+                if (!isTileSolid(check_x, check_y_grab))
+                {
+                    free_pixels++;
+                } else {
+                    // Wenn ein Pixel in der definierten "freien" Zone solide ist,
+                    // ist KEIN Kanten-Griff möglich. Abbruch.
+                    break;
+                }
             }
-            else // Nach links bewegt
+
+            // Wenn die Anzahl der freien Pixel der gewünschten Margin entspricht
+            if (free_pixels == EDGE_GRAB_FREE_HEIGHT)
             {
-                s16 tile_right = ((check_x / TILE_SIZE_PX) + 1) * TILE_SIZE_PX;
-                entity->x = tile_right + (entity->width >> 1);
+                VDP_drawText("EDGE GRAB          ",0,1);
+
+                // **Kanten-Griff erfolgreich!**
+                entity->state = P_EDGE_GRAB;
+
+                if (entity->vy > -100)
+                entity->vy = -100;// free_pixels yy; // Vertikale Bewegung stoppen
+
+                // Optional: X-Position an die Kante ausrichten (wie bei normaler Kollision)
+                if (entity->x > entity->x_old) // Nach rechts bewegt
+                {
+                    s16 tile_left = (check_x / TILE_SIZE_PX) * TILE_SIZE_PX;
+                    entity->x = tile_left - (entity->width >> 1) - 1;
+                }
+                else // Nach links bewegt
+                {
+                    s16 tile_right = ((check_x / TILE_SIZE_PX) + 1) * TILE_SIZE_PX;
+                    entity->x = tile_right + (entity->width >> 1);
+                }
+                
+                // Wir haben den Zustand gewechselt und die Bewegung gestoppt.
+                return; 
             }
         }
-    }
+        
+        // ----------------------------------------------------------------------
+        // NORMALE WAND-KORREKTUR (falls kein Kanten-Griff möglich)
+        // ----------------------------------------------------------------------
+        
+        // Spieler an die Kachelkante verschieben (Alignment und Offset-Hack)
+        if (entity->x > entity->x_old) // Nach rechts bewegt
+        {
+             s16 tile_left = (check_x / TILE_SIZE_PX) * TILE_SIZE_PX;
+             // Behalte deinen -1 Offset, der dein Tunnelling behoben hat
+             entity->x = tile_left - (entity->width >> 1) - 1; 
+        }
+        else // Nach links bewegt
+        {
+             s16 tile_right = ((check_x / TILE_SIZE_PX) + 1) * TILE_SIZE_PX;
+             entity->x = tile_right + (entity->width >> 1);
+        }
+    } else if (entity->state == P_EDGE_GRAB) entity->state = P_FALLING;
+
+}
     
     // --- Y SWEEP: Vertikal bewegen und Boden-/Deckenkollision prüfen ---
     entity->y = desired_y;
@@ -130,42 +168,61 @@ void check_collision(Entity* entity)
             }
             else // Nach oben bewegt (Kopf gestoßen)
             {
-                // Spieler auf die untere Kante der kollidierten Kachel verschieben
+                bool slide_occurred = false;
+                bool hit_left = isTileSolid(check_x1, check_y);
+                bool hit_right = isTileSolid(check_x2, check_y);
+
+                // Nur wenn genau EINE Seite trifft, prüfen wir den Eck-Slide
+                if (hit_left != hit_right) 
+                {
+                    // Tile-Kanten basierend auf den Kollisionspunkten
+                    s16 tile_col_x1 = check_x1 / TILE_SIZE_PX;
+                    s16 tile_col_x2 = check_x2 / TILE_SIZE_PX;
+                    s16 tile_right_x1 = (tile_col_x1 + 1) * TILE_SIZE_PX; // Rechte Kante des linken Kollisions-Tiles
+                    s16 tile_left_x2 = tile_col_x2 * TILE_SIZE_PX;         // Linke Kante des rechten Kollisions-Tiles
+
+                    if (hit_right) // KORREKTUR 1: Rechte Ecke stößt (Sliding nach Links)
+                    {
+                        // Prüfe, ob der Überlapp klein genug ist.
+                        if ((right_y_check > tile_left_x2) && (right_y_check - tile_left_x2 <= CORNER_CORRECTION_TOLERANCE)) 
+                        {
+                            // PUSH LEFT: Verschiebe den Spieler, sodass sein rechter Rand 1 Pixel links von der Kachelkante ist.
+                            entity->x = tile_left_x2 - (entity->width >> 1) - 1; 
+                            slide_occurred = true;
+                        }
+                    }
+                    else if (hit_left) // KORREKTUR 2: Linke Ecke stößt (Sliding nach Rechts)
+                    {
+                        // Prüfe, ob der Überlapp klein genug ist.
+                        if ((left_y_check < tile_right_x1) && (tile_right_x1 - left_y_check <= CORNER_CORRECTION_TOLERANCE))
+                        {
+                            // PUSH RIGHT: Verschiebe den Spieler, sodass sein linker Rand 1 Pixel rechts von der Kachelkante ist.
+                            entity->x = tile_right_x1 + (entity->width >> 1) + 1; 
+                            slide_occurred = true;
+                        }
+                    }
+                }
+                
+                // Spieler auf die untere Kante der kollidierten Kachel verschieben (Vertikale Auflösung)
                 s16 tile_bottom = ((check_y / TILE_SIZE_PX) + 1) * TILE_SIZE_PX;
                 entity->y = tile_bottom + (entity->height >> 1);
-                entity->vy = 0;
+                
+                // Geschwindigkeitskorrektur: vy = 0 nur, wenn KEIN Slide stattgefunden hat.
+                // Wenn ein Slide stattfand, behält vy den (negativen) Wert, sodass der 
+                // Spieler in der nächsten Frame weiter horizontal entlang der Decke "rutscht".
+                if (!slide_occurred) {
+                    entity->vy = 0;
+                }
             }
-
-            // Vertikale Geschwindigkeit auf Null setzen (Hard Stop in Y-Richtung)
-            
-
-            
-            
         }
     }
-    
-    // 3. Abschließende Positionen und statische Bodenprüfung
 
-
-    
-    // --- STATISCHE BODEN-PRÜFUNG ---
-    // Diese Prüfung stellt sicher, dass isOnGround auch bei vy=0 TRUE bleibt.
-    
-    // Prüfen, ob eine solide Kachel 1 Pixel unterhalb des Players liegt
     s16 check_y_ground = entity->y + (entity->height >> 1) + 1; 
     s16 check_x1_ground = entity->x - (entity->width >> 1) + 1;
     s16 check_x2_ground = entity->x + (entity->width >> 1) - 1;
 
-    if (isTileSolid(check_x1_ground, check_y_ground) || isTileSolid(check_x2_ground, check_y_ground))
-    {
-        // Wir stehen auf dem Boden.
-        isOnGround = true;
-    }
-
-
+    if (isTileSolid(check_x1_ground, check_y_ground) || isTileSolid(check_x2_ground, check_y_ground)) isOnGround = true;
     if (isOnGround) entity->state = P_GROUNDED;
+    else if (entity->state != P_JUMPING && entity->state != P_EDGE_GRAB ) entity-> state = P_FALLING;
 
-    else if (entity->state != P_JUMPING) entity-> state = P_FALLING;
-    // WICHTIG: Wenn der Spieler bereits durch den Y-Sweep auf TRUE gesetzt wurde, 
-    // muss die statische Prüfung dies bestätigen, oder der nächste Frame korrigiert es.
 }

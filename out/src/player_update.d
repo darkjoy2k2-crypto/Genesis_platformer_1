@@ -1,4 +1,4 @@
-out/src/physics.o: src/physics.c src/physics.h \
+out/src/player_update.o: src/player_update.c \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/genesis.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/types.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/config.h \
@@ -52,4 +52,4 @@ out/src/physics.o: src/physics.c src/physics.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/string.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/maths.h \
  C:/Users/peter/Documents/_Genesis/sgdk211/inc/dma.h src/entity_list.h \
- src/checkCollisions.h src/player_update.h
+ src/player_update.h
