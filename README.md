@@ -4,6 +4,7 @@ Just some basic Sega Genesis Platformer Game. Feel free to test!
 
 Use on any Sega-Emulator or Genesis Hardware with Everdrive.
 Rom is in out/rom.bin
+https://github.com/darkjoy2k2-crypto/Genesis_platformer_1/blob/main/out/rom.bin
 
 Good links:
 
