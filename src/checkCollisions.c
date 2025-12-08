@@ -2,6 +2,7 @@
 #include "checkCollisions.h"
 #include "entity_list.h"
 #include "level.h" 
+#include "debug.h"
 
 #define TILE_SIZE_PX 16
 #define MAP_WIDTH_TILES 60
@@ -35,6 +36,10 @@ void check_collision(Entity* entity){
     entity->x = entity->x_old;
     entity->y = entity->y_old;
 
+    debug_set(0, entity->x);
+    debug_set(1, entity->y);
+
+
     // --- X SWEEP: Horizontal bewegen und Wandkollision prüfen ---
     entity->x = desired_x;
 
@@ -61,14 +66,16 @@ if (entity->vx != 0)
     if (isTileSolid(check_x, check_y1) || isTileSolid(check_x, check_y2))
     {
         // Kollision gefunden! (Wand getroffen)
+        entity->edge_grab_side = entity->vx;
+
         entity->vx = 0;
 
         // ----------------------------------------------------------------------
         // KANTEN-GREIF-PRÜFUNG
         // ----------------------------------------------------------------------
 
-        // Nur prüfen, wenn der Spieler springt oder fällt (nicht grounded oder neutral)
-        if (entity->state == P_JUMPING || entity->state == P_EDGE_GRAB)
+        // Nur prüfen, wenn der Spieler springt (neuer Grab-Versuch)
+        if (entity->state == P_JUMPING)
         {
             s16 free_pixels = 0;
             
@@ -81,37 +88,42 @@ if (entity->vx != 0)
                 {
                     free_pixels++;
                 } else {
-                    // Wenn ein Pixel in der definierten "freien" Zone solide ist,
-                    // ist KEIN Kanten-Griff möglich. Abbruch.
                     break;
                 }
             }
+            debug_set(2, free_pixels);
 
-            // Wenn die Anzahl der freien Pixel der gewünschten Margin entspricht
-            if (free_pixels == EDGE_GRAB_FREE_HEIGHT)
-            {
-                VDP_drawText("EDGE GRAB          ",0,1);
+if (free_pixels == EDGE_GRAB_FREE_HEIGHT && entity->timer_edgegrab == 0)
+    {
+            VDP_drawText("EDGE GRAB",0,1);
 
-                // **Kanten-Griff erfolgreich!**
                 entity->state = P_EDGE_GRAB;
-
-                if (entity->vy > -100)
-                entity->vy = -100;// free_pixels yy; // Vertikale Bewegung stoppen
-
-                // Optional: X-Position an die Kante ausrichten (wie bei normaler Kollision)
-                if (entity->x > entity->x_old) // Nach rechts bewegt
-                {
-                    s16 tile_left = (check_x / TILE_SIZE_PX) * TILE_SIZE_PX;
-                    entity->x = tile_left - (entity->width >> 1) - 1;
-                }
-                else // Nach links bewegt
-                {
-                    s16 tile_right = ((check_x / TILE_SIZE_PX) + 1) * TILE_SIZE_PX;
-                    entity->x = tile_right + (entity->width >> 1);
-                }
+                entity->vy = 0; // Setze vy auf 0, um Fallbewegung zu stoppen
+  
+                // -------------------------------------------------------------
+                // NEU: KORREKTUR FÜR EDGE GRAB
+                // -------------------------------------------------------------
+                s16 tile_col_x = check_x / TILE_SIZE_PX;
                 
-                // Wir haben den Zustand gewechselt und die Bewegung gestoppt.
-                return; 
+                if (entity->edge_grab_side > 0) // Nach rechts gegrabbt
+                {
+                    // Verschiebe Spieler nach links zur Kante des kollidierten Tiles
+                    s16 tile_left = tile_col_x * TILE_SIZE_PX; 
+                    // Setze den rechten Rand der Entität an die linke Kachelkante
+                    entity->x = tile_left - (entity->width >> 1) - 1;
+                    // Du könntest hier noch einen Offset von -1 oder +1 für einen perfekten Halt hinzufügen
+                }
+                else // Nach links gegrabbt
+                {
+                    // Verschiebe Spieler nach rechts zur Kante des kollidierten Tiles
+                    s16 tile_right = (tile_col_x + 1) * TILE_SIZE_PX;
+                    // Setze den linken Rand der Entität an die rechte Kachelkante
+                    entity->x = tile_right + (entity->width >> 1);
+                    // Du könntest hier noch einen Offset von -1 oder +1 für einen perfekten Halt hinzufügen
+                }
+                // -------------------------------------------------------------
+
+                return; // Verlasse die Funktion nach dem erfolgreichen Edge Grab
             }
         }
         
@@ -131,8 +143,7 @@ if (entity->vx != 0)
              s16 tile_right = ((check_x / TILE_SIZE_PX) + 1) * TILE_SIZE_PX;
              entity->x = tile_right + (entity->width >> 1);
         }
-    } else if (entity->state == P_EDGE_GRAB) entity->state = P_FALLING;
-
+    } 
 }
     
     // --- Y SWEEP: Vertikal bewegen und Boden-/Deckenkollision prüfen ---
@@ -217,12 +228,49 @@ if (entity->vx != 0)
         }
     }
 
+/*
+if (entity->state == P_EDGE_GRAB && false == true)
+{
+    s16 head_y = entity->y - (entity->height >> 1);
+
+    // Prüfe zwei Punkte: 1 Pixel unter dem Kopf, und 8 Pixel unter dem Kopf
+    bool near_corner = false;
+    for (s16 y_offset = 1; y_offset <= EDGE_GRAB_FREE_HEIGHT; y_offset++)
+    {
+        s16 check_y = head_y + y_offset;
+
+        // check_x = dort wo die Kollision ursprünglich erkannt wurde
+        s16 check_x = (entity->vx > 0)
+                        ? entity->x + (entity->width >> 1)
+                        : entity->x - (entity->width >> 1);
+
+        if (!isTileSolid(check_x, check_y))
+        {
+            near_corner = true;
+            break;
+        }
+    }
+
+    if (!near_corner)
+    {
+        entity->state = P_FALLING;
+    }
+}
+*/
+
+
+
+
+
+
+
+
     s16 check_y_ground = entity->y + (entity->height >> 1) + 1; 
     s16 check_x1_ground = entity->x - (entity->width >> 1) + 1;
     s16 check_x2_ground = entity->x + (entity->width >> 1) - 1;
 
     if (isTileSolid(check_x1_ground, check_y_ground) || isTileSolid(check_x2_ground, check_y_ground)) isOnGround = true;
     if (isOnGround) entity->state = P_GROUNDED;
-    else if (entity->state != P_JUMPING && entity->state != P_EDGE_GRAB ) entity-> state = P_FALLING;
+    else if (entity->state != P_JUMPING && entity->state != P_EDGE_GRAB) entity->state = P_FALLING;
 
 }

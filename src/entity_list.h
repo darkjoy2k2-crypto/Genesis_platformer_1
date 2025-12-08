@@ -41,9 +41,13 @@ typedef struct {
 
     s16 timer_grace;
     s16 timer_buffer;
+    s16 timer_edgegrab;
 
     Sprite* sprite;
     enum ENTITY_TYPE type;
+
+    bool is_on_wall;
+    s16 edge_grab_side;
 } Entity;
 
 #define MAX_ENTITIES 10

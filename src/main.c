@@ -4,11 +4,11 @@
 #include "entity_list.h"
 #include "checkCollisions.h"
 #include "physics.h"
-
+#include "debug.h"
 
 
 Vect2D_s16 camera_position = {.x = 0, .y = 0}; 
-char info[40]; // Erhöht auf 40, um Überlauf zu vermeiden
+
 Map* level_1_map;
 bool show_level = true;
 
@@ -93,8 +93,6 @@ void update_animation(Entity* e){
     if (e->anim_index > 49) e->anim_index -= 50;
 
     SPR_setAnimAndFrame(e->sprite, 0, e->anim_index / 6);
-    sprintf(info, "AF: %d STATE: %d      ",e->anim_index, e->state);
-    VDP_drawText(info, 0, 0);
 }
 
 int main() {
@@ -136,7 +134,7 @@ int main() {
 
     // --- GAME LOOP ---
     while(1) {
-             
+        debug_draw();
         handle_all_entities();
 
         update_animation(&entities[player_id]);

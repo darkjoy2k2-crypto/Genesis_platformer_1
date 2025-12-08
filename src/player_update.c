@@ -1,19 +1,22 @@
 #include <genesis.h>
 #include "entity_list.h" // KORREKTUR: Alle Entity-Definitionen kommen von hier
 #include "player_update.h" 
+#include "debug.h"
 
 // ====================================================================
 // 1. PHYSIK-KONSTANTEN (ANGEPASST AN IHRE VORGABEN)
 // ====================================================================
 
-#define JUMP_VELOCITY_START 500
+#define JUMP_VELOCITY_START 480
+#define JUMP_VELOCITY_START_GC 480
+#define EDGE_JUMP_START     250
 #define HORIZONTAL_ACCEL    90 // REDUZIERT
 #define RUN_SPEED_MAX       650 // REDUZIERT
 #define FALL_SPEED_MAX      1000
-#define GRAVITY_JUMP        25
+#define GRAVITY_JUMP        20
 #define GRAVITY_FALL        40
 #define GROUND_FRICTION     0.7 
-#define GRACE_PERIOD_FRAMES 7  
+#define GRACE_PERIOD_FRAMES 5  
 
 
 // ====================================================================
@@ -42,95 +45,61 @@ void update_player_state_and_physics(Entity* player) {
     // Timer-Updates
     if (player->timer_grace > 0) player->timer_grace--;
     if (player->timer_buffer > 0) player->timer_buffer--;
+    if (player->timer_edgegrab > 0) player->timer_edgegrab--;
     
-    // Sprung-Buffer-Prüfung bei Landung 
-    if (player->state == P_GROUNDED && player->state_old == P_FALLING && player->timer_buffer > 0)
-    {
-        player->state = P_JUMPING;
-        player->vy = -JUMP_VELOCITY_START; 
-        player->timer_buffer = 0;
-        VDP_drawText("BUFFERED JUMP", 0, 1);
-    }
-    
-    // Grace-Period-Aktivierung bei Kantenfall
-    if (player->state_old == P_GROUNDED && player->state == P_FALLING)
-    {
-        player->timer_grace = GRACE_PERIOD_FRAMES;
-    }
-    
-    // --- 2. JUMP-INPUT ---
-    if ((joy_state & BUTTON_A) && !(player->state_old_joy & BUTTON_A))
-    {
-        if (player->state == P_GROUNDED || player->timer_grace > 0) 
-        {
-            player->state = P_JUMPING;
-            player->timer_buffer = 0;
-            player->vy = -JUMP_VELOCITY_START; 
-        } else {
-            player->timer_buffer = GRACE_PERIOD_FRAMES; 
-        }
-    }
+    debug_set(3, player->vy);
+    debug_set(4, player->state);
 
-    // --- 3. ZUSTANDSVERARBEITUNG (State Machine Switch) ---
     switch (player->state) {
         case P_IDLE:
         case P_RUNNING:
-        case P_GROUNDED: 
-            handle_idle_running_logic(player, joy_state);
+        case P_GROUNDED:
+            buffered_jump(player);
+            joy_check_directions(player, joy_state);
+            check_normal_jump(player, joy_state);
+            check_grace_jump(player);
+
+            player->vx *= GROUND_FRICTION;
+            if (player->vy > 0) player->state = P_FALLING;
             break;
 
         case P_JUMPING:
+
+            joy_check_directions(player, joy_state);
+            player->vy += GRAVITY_JUMP; 
+            if (!(joy_state & BUTTON_A)){
+                player->vy = 40; 
+            }
+            if (player->vy > 0) player->state = P_FALLING;
+            player->vx *= GROUND_FRICTION;
+            break;
+
         case P_FALLING:
-            handle_jumping_falling_logic(player, joy_state);
+            joy_check_directions(player, joy_state);
+            joy_check_falling(player, joy_state);
+            grace_jump(player);
+            player->vy += GRAVITY_FALL;
+            player->vx *= GROUND_FRICTION;
+
             break;
             
         case P_EDGE_GRAB:
-            handle_edge_grab_logic(player, joy_state);
+
+            joy_check_grab_directions(player, joy_state);
+            player->state = P_FALLING;
             break;
             
         default:
-            if (player->state == P_GROUNDED) {
-                player->state = P_IDLE;
-            }
             break;
     }
 
-    // --- 4. ALLGEMEINE PHYSIK ANWENDEN ---
-
-    // A. Horizontaler Schub
-    if (player->state != P_EDGE_GRAB)
-    {
-        if (joy_state & BUTTON_LEFT) {
-            player->vx -= HORIZONTAL_ACCEL;
-        } else if (joy_state & BUTTON_RIGHT) {
-            player->vx += HORIZONTAL_ACCEL;
-        }
-    }
-    
-
-            player->vx *= GROUND_FRICTION;
-
-
-
-    // C. Gravity 
-    if (player->state == P_JUMPING) {
-        if (!(joy_state & BUTTON_A) && (player->state_old_joy & BUTTON_A) && player->vy < 0) {
-            player->vy = 40; 
-        }
-        player->vy += GRAVITY_JUMP; 
-        
-    } else if (player->state == P_FALLING) { // EDGE_GRAB HIER ENTFERNT!
-        player->vy += GRAVITY_FALL; 
-    }
-    
-    // D. Geschwindigkeitsbegrenzungen (Clamps)
     if (player->vx > RUN_SPEED_MAX) player->vx = RUN_SPEED_MAX;
     if (player->vx < -RUN_SPEED_MAX) player->vx = -RUN_SPEED_MAX;
     if (player->vy > FALL_SPEED_MAX) player->vy = FALL_SPEED_MAX;
-
-    // --- 5. POSITION AKTUALISIEREN & STATE FÜR NÄCHSTEN FRAME SPEICHERN ---
+   
     player->state_old_joy = (joy_state & BUTTON_A); 
     player->state_old = player->state;
+
     player->x += player->vx / 100;
     player->y += player->vy / 100;
 }
@@ -152,17 +121,78 @@ static void handle_idle_running_logic(Entity* player, u16 joy_state) {
         player->state = P_IDLE;
     }
 }
+
+
 static void handle_jumping_falling_logic(Entity* player, u16 joy_state) {
     if (player->state == P_JUMPING && player->vy >= 0) {
         player->state = P_FALLING;
     }
 }
-static void handle_edge_grab_logic(Entity* player, u16 joy_state) {
-    if (joy_state & BUTTON_B) {
-        player->state = P_FALLING;
-        if (joy_state & BUTTON_LEFT) player->vx = -100; 
-        else if (joy_state & BUTTON_RIGHT) player->vx = 100;
-        return;
+
+void buffered_jump(Entity* player){
+    if (player->state == P_GROUNDED && player->state_old == P_FALLING && player->timer_buffer > 0)
+    {
+        player->state = P_JUMPING;
+        player->vy = -JUMP_VELOCITY_START; 
+        player->timer_buffer = 0;
+        VDP_drawText("BUFFERED JUMP", 0, 1);
     }
-    player->vy = 0;
+}
+
+void grace_jump(Entity* player){
+    if (player->state_old == P_GROUNDED && player->state == P_FALLING)
+    {
+        player->timer_grace = GRACE_PERIOD_FRAMES;
+    }
+}
+
+void joy_check_directions(Entity* player, u16 joy_state){
+    if (joy_state & BUTTON_LEFT) {
+        player->vx -= HORIZONTAL_ACCEL;
+    } else if (joy_state & BUTTON_RIGHT) {
+        player->vx += HORIZONTAL_ACCEL;
+    }
+}
+
+void joy_check_falling(Entity* player, u16 joy_state){
+    if (joy_state & BUTTON_LEFT) {
+        player->vx -= HORIZONTAL_ACCEL;
+    } else if (joy_state & BUTTON_RIGHT) {
+        player->vx += HORIZONTAL_ACCEL;
+    }
+    if ((joy_state & BUTTON_A) && !(player->state_old_joy & BUTTON_A)){
+        if (player->timer_grace > 0){
+            VDP_drawText("GRACE JUMP", 0, 1);
+            jump(player);
+        } 
+        player->timer_buffer = GRACE_PERIOD_FRAMES;
+    }
+ 
+
+}
+
+void joy_check_grab_directions(Entity* player, u16 joy_state){
+        edge_jump(player, joy_state);
+
+}
+
+void check_grace_jump(Entity* player){if (player->timer_grace > 0) jump(player); }
+
+void check_normal_jump(Entity* player, u16 joy_state){
+    if ((joy_state & BUTTON_A) && !(player->state_old_joy & BUTTON_A))
+        jump(player);
+}
+    
+
+void edge_jump(Entity* player, u16 joy_state){
+
+    player->vy -= EDGE_JUMP_START;
+    player->state = P_FALLING;
+}
+
+void jump(Entity* player){
+    player->timer_edgegrab = 5;
+    player->state = P_JUMPING;
+    player->timer_buffer = 0;
+    player->vy = -JUMP_VELOCITY_START; 
 }
