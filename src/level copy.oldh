@@ -6,8 +6,8 @@
 // Globale Level-Konstanten
 // --- KONSTANTEN ---
 #define TILE_SIZE 16
-#define MAP_W 80
-#define MAP_H 60 
+#define MAP_W 60
+#define MAP_H 40  
 #define cam_min_x 102
 #define cam_max_x 203
 #define cam_min_y 65
