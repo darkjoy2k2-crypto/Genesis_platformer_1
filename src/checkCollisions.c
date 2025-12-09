@@ -29,6 +29,8 @@ static bool isTileSolid(s16 world_x, s16 world_y){
 
 void check_collision(Entity* entity){
 
+    entity->is_on_wall = false;  // Player is touching a wall
+
     bool isOnGround = false;
     s16 desired_x = entity->x;
     s16 desired_y = entity->y;
@@ -68,8 +70,15 @@ if (entity->vx != 0)
         // Kollision gefunden! (Wand getroffen)
         entity->edge_grab_side = entity->vx;
 
-        entity->vx = 0;
+        if (isTileSolid(check_x, check_y1) && isTileSolid(check_x, check_y2)){
+            entity->is_on_wall = true;  // PlayerP is touching a wall
+            entity->timer_wall_exec = 0; 
+        }
 
+        if (entity->state != P_WALL_JUMP){
+
+        entity->vx = 0;
+        }
         // ----------------------------------------------------------------------
         // KANTEN-GREIF-PRÜFUNG
         // ----------------------------------------------------------------------
@@ -271,6 +280,6 @@ if (entity->state == P_EDGE_GRAB && false == true)
 
     if (isTileSolid(check_x1_ground, check_y_ground) || isTileSolid(check_x2_ground, check_y_ground)) isOnGround = true;
     if (isOnGround) entity->state = P_GROUNDED;
-    else if (entity->state != P_JUMPING && entity->state != P_EDGE_GRAB) entity->state = P_FALLING;
+    else if (entity->state != P_WALL_JUMP && entity->state != P_SHOT_JUMP && entity->state != P_JUMPING && entity->state != P_EDGE_GRAB) entity->state = P_FALLING;
 
 }

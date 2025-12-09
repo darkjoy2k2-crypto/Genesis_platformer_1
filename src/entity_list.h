@@ -18,7 +18,9 @@ enum ENTITY_STATE {
     P_FALLING = 7,
     P_RUNNING = 8,
     P_EDGE_GRAB = 9,
-    P_SAFE = 10
+    P_WALL_JUMP = 10,
+    P_SAFE = 11,
+    P_SHOT_JUMP = 12
 };
 
 typedef struct {
@@ -42,6 +44,10 @@ typedef struct {
     s16 timer_grace;
     s16 timer_buffer;
     s16 timer_edgegrab;
+    s16 timer_wall;
+    s16 timer_wall_exec;
+    s16 timer_shot_jump;
+
 
     Sprite* sprite;
     enum ENTITY_TYPE type;
