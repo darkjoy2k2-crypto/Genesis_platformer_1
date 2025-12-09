@@ -1,4 +1,5 @@
-![screenshot](https://github.com/user-attachments/assets/ed79a018-c947-4c21-9161-ace27f448047)
+<img width="1269" height="945" alt="image" src="https://github.com/user-attachments/assets/7b21ee26-5e3e-4564-9d6b-b1d460432c12" />
+
 
 Just some basic Sega Genesis Platformer Game. Feel free to test!
 
