@@ -63,7 +63,7 @@ if (entity->vx != 0)
     s16 check_y2 = bottom_x_check - 1;
 
     // Normale X-Kollision prüfen
-    if (isTileSolid(check_x, check_y1) || isTileSolid(check_x, check_y2))
+    if (isTileSolid(check_x, check_y1) && isTileSolid(check_x, check_y2))
     {
         // Kollision gefunden! (Wand getroffen)
         entity->edge_grab_side = entity->vx;
