@@ -17,4 +17,13 @@ https://ldtk.io/
 KEGA FUSION - Emulator
 https://segaretro.org/Kega_Fusion
 
+## Contributing
+
+Interested in contributing to this project? Check out our [CONTRIBUTING.md](CONTRIBUTING.md) to learn about:
+- Why we use pull requests
+- How to set up your development environment
+- Our contribution workflow and guidelines
+
+Pull requests are welcome! They help maintain code quality, enable collaboration, and keep the project healthy.
+
 have fun!
