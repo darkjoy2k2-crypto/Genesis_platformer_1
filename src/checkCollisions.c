@@ -6,8 +6,8 @@
 
 // --- Konstanten (Annahme: Für 8x8 Tiles angepasst) ---
 #define TILE_SIZE_PX 8 
-#define MAP_WIDTH_TILES 80 // 60 * 2
-#define MAP_HEIGHT_TILES 60 // 40 * 2
+#define MAP_WIDTH_TILES MAP_W // 60 * 2
+#define MAP_HEIGHT_TILES MAP_H // 40 * 2
 #define EDGE_GRAB_FREE_HEIGHT 4 // z.B. 4 Pixel für 8x8 Tiles (Hälfte der Kachelhöhe)
 #define CORNER_CORRECTION_TOLERANCE 6 
 #define MAX_COLLISION_STEP (TILE_SIZE_PX / 2) // Maximaler Schritt: 4 Pixel

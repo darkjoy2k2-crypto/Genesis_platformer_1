@@ -57,11 +57,11 @@ static void handlecamera(Entity* player){
     }
 
     // Maximale X/Y Position
-    if (camera_position.x > 640 - 320){ // 960 - 320 = 640
-        camera_position.x = 640 - 320;
+    if (camera_position.x > MAP_W * 8 - 320){ // 960 - 320 = 640
+        camera_position.x = MAP_W * 8 - 320;
     }
-    if (camera_position.y > 480 - 224){ // 640 - 224 = 416
-        camera_position.y = 480 - 224;
+    if (camera_position.y > MAP_H * 8 - 224){ // 640 - 224 = 416
+        camera_position.y = MAP_H * 8  - 224;
     }
 
     if (show_level){
